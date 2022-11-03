@@ -1,0 +1,17 @@
+
+URL - https://www.gartner.com/en/articles/build-a-successful-data-loss-prevention-program-in-5-steps
+
+DLP Step #1: Scope the program
+Goal: Provide insight into data and business practices to allow DLP to address real issues without prompting disruption.
+
+DLP Step #2: Start awareness and governance activities
+Goal: Build a plan to communicate to all parties what is happening with data, why it is happening, the benefits, and the likely impacts on them.
+
+DLP Step #3: Design initial architecture
+Goal: Map your DLP use cases (detection and context requirements) to each enforcement point
+
+DLP Step #4: Begin to address dependencies
+Goal: Push for improvements on some of the dependencies identified early on.
+
+DLP Step #5: Deploy, operate and evolve
+Goal: Start small and deploy in stages, as DLP rollouts can be disruptive. 
