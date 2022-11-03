@@ -16,14 +16,4 @@ Goal: Push for improvements on some of the dependencies identified early on.
 DLP Step #5: Deploy, operate and evolve
 Goal: Start small and deploy in stages, as DLP rollouts can be disruptive. 
 
--------------------------------------------------
-For KV-store definition Migration
 
-
-
-1. On the originating server run the below command  -   /opt/splunk/bin/splunk backup kvstore. Username n Password if prompted
-2. This will create a tar file in /opt/splunk/var/lib/splunk/kvstorebackup
-3. On the destination server run the command - mkdir /opt/splunk/var/lib/splunk/kvstorebackup
-4. Copy the tar file create in step 2 to the directory created in step 3
-5. On the destination server run the command - /opt/splunk/bin/splunk restore kvstore  -archiveName [tarfilename]
-6. Restart splunk
