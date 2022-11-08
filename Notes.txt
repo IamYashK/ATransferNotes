@@ -17,3 +17,37 @@ DLP Step #5: Deploy, operate and evolve
 Goal: Start small and deploy in stages, as DLP rollouts can be disruptive. 
 
 
+For Data Loss:
+1.	Create a method to identify which index/sourcetype/host isn’t sending data for the last x time period.
+2.	Put alerting in place.
+3.	Identify situation where data loss
+4.	Identify root cause for data loss, fix if possible
+windows - What are SO_SNDBUF and SO_RCVBUF - Stack Overflow
+Use persistent queues to help prevent data loss - Splunk Documentation
+
+For data spike/dip
+1.	Identify priority datasource.
+2.	Method in place to identify spike/dip.
+3.	Put alerting in place.
+4.	If a pattern of timeframe is identified for spike/dip, check for root cause
+5.	Strategy in place on what to do during this timeframe.
+
+Identify spikes in data and notify using Splunk Light - Splunk Documentation
+For data latency issue
+1.	Identify priority datasource.
+2.	Check for data lag.
+3.	Identify root cause for delay, fix if possible
+Event indexing delay - Splunk Documentation
+Handling data delays in Splunk Infrastructure Monitoring - Splunk Lantern
+
+For process failure
+1.	Identify key process
+2.	Check if failure can be monitored via splunk
+3.	If yes, generate alerts in place to identify failure
+4.	Automate if possible
+
+MFOO?
+
+
+
+
