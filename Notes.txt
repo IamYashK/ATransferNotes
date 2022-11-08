@@ -33,6 +33,8 @@ For data spike/dip
 5.	Strategy in place on what to do during this timeframe.
 
 Identify spikes in data and notify using Splunk Light - Splunk Documentation
+
+https://derusvlxspldp01.eyxstaging.net:8443/en-US/account/login?return_to=%2Fen-US%2Fapp%2Flauncher%2Fhome
 For data latency issue
 1.	Identify priority datasource.
 2.	Check for data lag.
