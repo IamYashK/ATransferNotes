@@ -1,55 +1,8 @@
-
-URL - https://www.gartner.com/en/articles/build-a-successful-data-loss-prevention-program-in-5-steps
-
-DLP Step #1: Scope the program
-Goal: Provide insight into data and business practices to allow DLP to address real issues without prompting disruption.
-
-DLP Step #2: Start awareness and governance activities
-Goal: Build a plan to communicate to all parties what is happening with data, why it is happening, the benefits, and the likely impacts on them.
-
-DLP Step #3: Design initial architecture
-Goal: Map your DLP use cases (detection and context requirements) to each enforcement point
-
-DLP Step #4: Begin to address dependencies
-Goal: Push for improvements on some of the dependencies identified early on.
-
-DLP Step #5: Deploy, operate and evolve
-Goal: Start small and deploy in stages, as DLP rollouts can be disruptive. 
+Download the java rpm from
+https://www.oracle.com/in/java/technologies/javase/javase8-archive-downloads.html
 
 
-For Data Loss:
-1.	Create a method to identify which index/sourcetype/host isn’t sending data for the last x time period.
-2.	Put alerting in place.
-3.	Identify situation where data loss
-4.	Identify root cause for data loss, fix if possible
-windows - What are SO_SNDBUF and SO_RCVBUF - Stack Overflow
-Use persistent queues to help prevent data loss - Splunk Documentation
+From the directory where you downloaded the package, run the install:
+sudo rpm -ivh jdk-8u131-linux-x64.rpm
 
-For data spike/dip
-1.	Identify priority datasource.
-2.	Method in place to identify spike/dip.
-3.	Put alerting in place.
-4.	If a pattern of timeframe is identified for spike/dip, check for root cause
-5.	Strategy in place on what to do during this timeframe.
-
-Identify spikes in data and notify using Splunk Light - Splunk Documentation
-
-https://derusvlxspldp01.eyxstaging.net:8443/en-US/account/login?return_to=%2Fen-US%2Fapp%2Flauncher%2Fhome
-For data latency issue
-1.	Identify priority datasource.
-2.	Check for data lag.
-3.	Identify root cause for delay, fix if possible
-Event indexing delay - Splunk Documentation
-Handling data delays in Splunk Infrastructure Monitoring - Splunk Lantern
-
-For process failure
-1.	Identify key process
-2.	Check if failure can be monitored via splunk
-3.	If yes, generate alerts in place to identify failure
-4.	Automate if possible
-
-MFOO?
-
-
-
-
+/usr/java/jdk1.8.0_131/jre
