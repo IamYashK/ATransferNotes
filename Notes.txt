@@ -1,8 +1,3 @@
-Download the java rpm from
-https://www.oracle.com/in/java/technologies/javase/javase8-archive-downloads.html
+[11:42 am] Pramit Basu
+| inputlookup dmc_forwarder_assets | `dmc_rename_forwarder_type(forwarder_type)` | `dmc_time_format(last_connected)` | search NOT [|inputlookup dmc_assets | dedup serverName | rename serverName as hostname | fields hostname] | eval ip="", splunk_server="", last_connected_epoch=strptime(last_connected, "%m/%d/%Y %H:%M:%S %Z") | fields hostname, guid, ip, last_connected_epoch, forwarder_type, version, os, splunk_server,last_connected, status | search hostname="***" | search status="*" |  streamstats c as totalResultCount | rename hostname as ClientName,  guid AS "Client GUID", ip as ClientIP, forwarder_type as "Forwarder Type", version as "Splunk Version", os as "Operating System", status as Status, last_connected as  "Last Connected Timestamp", last_connected_epoch as  "Last Connected Timestamp Epoch", splunk_server AS "Deployment Server"
 
-
-From the directory where you downloaded the package, run the install:
-sudo rpm -ivh jdk-8u131-linux-x64.rpm
-
-/usr/java/jdk1.8.0_131/jre
