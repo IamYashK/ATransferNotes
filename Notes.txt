@@ -1,3 +1,37 @@
-[11:42 am] Pramit Basu
-| inputlookup dmc_forwarder_assets | `dmc_rename_forwarder_type(forwarder_type)` | `dmc_time_format(last_connected)` | search NOT [|inputlookup dmc_assets | dedup serverName | rename serverName as hostname | fields hostname] | eval ip="", splunk_server="", last_connected_epoch=strptime(last_connected, "%m/%d/%Y %H:%M:%S %Z") | fields hostname, guid, ip, last_connected_epoch, forwarder_type, version, os, splunk_server,last_connected, status | search hostname="***" | search status="*" |  streamstats c as totalResultCount | rename hostname as ClientName,  guid AS "Client GUID", ip as ClientIP, forwarder_type as "Forwarder Type", version as "Splunk Version", os as "Operating System", status as Status, last_connected as  "Last Connected Timestamp", last_connected_epoch as  "Last Connected Timestamp Epoch", splunk_server AS "Deployment Server"
-
+| inputlookup DataDetails 
+| join type=outer host index sourcetype 
+    [| inputlookup DataDetails 
+    | eval days_ago = relative_time(now(), "-20d@d")
+    | search index=* 
+    | search sourcetype!="*ecurity" 
+    | search sourcetype!="*00ystem" 
+    | search sourcetype!="*00pplication" 
+    | stats count by host, index, sourcetype 
+    | where count > 0 
+    | foreach host index sourcetype [
+        | makeresults 
+        | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
+        | eval days_ago=relative_time(now(),"-20d@d") 
+        | search host=$host$ index=$index$ sourcetype=$sourcetype$ earliest=$days_ago$ 
+        | head 1
+        | eval expectedgap = "NA"
+        | eval expectedgap = if(isnotnull(expectedgap), expectedgap, "NA")
+        | map
+            [| tstats count where host=$host$ index=$index$ sourcetype=$sourcetype$ by host _time span=1s 
+            | timechart sum(count) span=1m by host cont=false 
+            | delta _time as timediff 
+            | search timediff > 0 
+            | stats avg(timediff) as expectedgap 
+            | eval expectedgap = round(expectedgap,0) 
+            | eval expectedgap = expectedgap + 5000 
+            | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
+            | appendpipe 
+                [ stats count 
+                | eval expectedgap="FA" 
+                | eval host="$host$", index="$index$", sourcetype="$sourcetype$"]] maxsearches=100 
+        | table host index sourcetype expectedgap
+    ]
+    | inputlookup append=t DataDetails 
+    | table host index sourcetype expectedgap
+    ] 
+| outputlookup DataDetails
