@@ -1,37 +1,14 @@
-| inputlookup DataDetails 
-| join type=outer host index sourcetype 
-    [| inputlookup DataDetails 
-    | eval days_ago = relative_time(now(), "-20d@d")
-    | search index=* 
-    | search sourcetype!="*ecurity" 
-    | search sourcetype!="*00ystem" 
-    | search sourcetype!="*00pplication" 
-    | stats count by host, index, sourcetype 
-    | where count > 0 
-    | foreach host index sourcetype [
-        | makeresults 
-        | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
-        | eval days_ago=relative_time(now(),"-20d@d") 
-        | search host=$host$ index=$index$ sourcetype=$sourcetype$ earliest=$days_ago$ 
-        | head 1
-        | eval expectedgap = "NA"
-        | eval expectedgap = if(isnotnull(expectedgap), expectedgap, "NA")
-        | map
-            [| tstats count where host=$host$ index=$index$ sourcetype=$sourcetype$ by host _time span=1s 
-            | timechart sum(count) span=1m by host cont=false 
-            | delta _time as timediff 
-            | search timediff > 0 
-            | stats avg(timediff) as expectedgap 
-            | eval expectedgap = round(expectedgap,0) 
-            | eval expectedgap = expectedgap + 5000 
-            | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
-            | appendpipe 
-                [ stats count 
-                | eval expectedgap="FA" 
-                | eval host="$host$", index="$index$", sourcetype="$sourcetype$"]] maxsearches=100 
-        | table host index sourcetype expectedgap
-    ]
-    | inputlookup append=t DataDetails 
-    | table host index sourcetype expectedgap
-    ] 
-| outputlookup DataDetails
+[Cron 0 * * * 0,1,6]
+action.email.useNSSubject = 1
+action.webhook.enable_allowlist = 0
+alert.track = 0
+cron_schedule = 0 * * * 0,1,6
+dispatch.earliest_time = -24h@h
+dispatch.latest_time = now
+display.general.type = statistics
+display.page.search.tab = statistics
+display.visualizations.show = 0
+enableSched = 1
+request.ui_dispatch_app = search
+request.ui_dispatch_view = search
+search = | makeresults | eval cron_schedule = "0 * * * 0,1,6" | eval now=strftime(_time,"%c") |eval run_note = "This search ran at ".now | eval ran_at = _time | table cron_schedule ran_at run_note | collect index=main
