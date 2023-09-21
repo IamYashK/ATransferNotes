@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 $drives = Get-PSDrive -PSProvider 'FileSystem' 
 
 # Loop through each drive
@@ -42,3 +43,6 @@ foreach ($drive in $drives) {
     $streamWriter.Close()
     $fileStream.Close()
 }
+=======
+https://learn.microsoft.com/en-us/training/paths/azure-administrator-prerequisites/?WT.mc_id=Azure_BoM-wwl&source=learn
+>>>>>>> f23689c2ddd47fabae5758916932420efc33113c
