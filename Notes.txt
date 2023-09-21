@@ -1,37 +1,44 @@
-| inputlookup DataDetails 
-| join type=outer host index sourcetype 
-    [| inputlookup DataDetails 
-    | eval days_ago = relative_time(now(), "-20d@d")
-    | search index=* 
-    | search sourcetype!="*ecurity" 
-    | search sourcetype!="*00ystem" 
-    | search sourcetype!="*00pplication" 
-    | stats count by host, index, sourcetype 
-    | where count > 0 
-    | foreach host index sourcetype [
-        | makeresults 
-        | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
-        | eval days_ago=relative_time(now(),"-20d@d") 
-        | search host=$host$ index=$index$ sourcetype=$sourcetype$ earliest=$days_ago$ 
-        | head 1
-        | eval expectedgap = "NA"
-        | eval expectedgap = if(isnotnull(expectedgap), expectedgap, "NA")
-        | map
-            [| tstats count where host=$host$ index=$index$ sourcetype=$sourcetype$ by host _time span=1s 
-            | timechart sum(count) span=1m by host cont=false 
-            | delta _time as timediff 
-            | search timediff > 0 
-            | stats avg(timediff) as expectedgap 
-            | eval expectedgap = round(expectedgap,0) 
-            | eval expectedgap = expectedgap + 5000 
-            | eval host="$host$", index="$index$", sourcetype="$sourcetype$" 
-            | appendpipe 
-                [ stats count 
-                | eval expectedgap="FA" 
-                | eval host="$host$", index="$index$", sourcetype="$sourcetype$"]] maxsearches=100 
-        | table host index sourcetype expectedgap
-    ]
-    | inputlookup append=t DataDetails 
-    | table host index sourcetype expectedgap
-    ] 
-| outputlookup DataDetails
+$drives = Get-PSDrive -PSProvider 'FileSystem' 
+
+# Loop through each drive
+foreach ($drive in $drives) {
+    # Define the output file path
+    $outputFile = "D:\Z-Other\ScriptingTest\powershell\FileNSize\file_sizes_$($drive.Name).txt"
+
+    # Check if the output file exists and delete it if it does
+    if (Test-Path -Path $outputFile -PathType Leaf) {
+        $file = Get-Item $outputFile
+        $fileIsOpen = $false
+        try {
+            $fileStream = $file.Open([System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        }
+        catch {
+            $fileIsOpen = $true
+        }
+        if ($fileStream) {
+            $fileStream.Close()
+        }
+        if (-not $fileIsOpen) {
+            Remove-Item -Path $outputFile
+        }
+    }
+
+    # Create a FileStream object to open the output file
+    $fileStream = New-Object System.IO.FileStream($outputFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+
+    # Create a StreamWriter object to write to the output file
+    $streamWriter = New-Object System.IO.StreamWriter($fileStream)
+
+    # Get all the files in the current drive, including hidden and system files and folders
+    $files = Get-ChildItem -Path $drive.Root -Recurse -File -Force
+
+    # Loop through each file and write the name and size to the output file
+    foreach ($file in $files) {
+        $line = $file.FullName + "##-##" + $file.Length
+        $streamWriter.WriteLine($line)
+    }
+
+    # Close the StreamWriter and FileStream objects
+    $streamWriter.Close()
+    $fileStream.Close()
+}
