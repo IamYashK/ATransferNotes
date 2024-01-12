@@ -1,1 +1,1 @@
-https://learn.microsoft.com/en-us/training/paths/azure-administrator-prerequisites/?WT.mc_id=Azure_BoM-wwl&source=learn
+https://docs.splunk.com/Documentation/Forwarder/9.0.5/Forwarder/Installanixuniversalforwarder
