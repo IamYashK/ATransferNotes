@@ -1,1 +1,180 @@
-https://docs.splunk.com/Documentation/Forwarder/9.0.5/Forwarder/Installanixuniversalforwarder
+| rest /servicesNS/-/-/saved/searches splunk_server=local 
+| fields search eai:acl.app title 
+| rename eai:acl.app as app 
+```| append [| rest /servicesNS/-/searchbase/configs/conf-searchbase splunk_server=local | fields search_name eai:acl.app search title | eval search_name=if(isnull(searchname), title, search_name) | fields - title | rename eai:acl.app AS app search_name as title]```
+| search NOT search IN ("*tstats*", "| outputlookup *", "*datamodel*", "|*rest*", "|rest*", "|*from*", "|from*", "|*makeresults*", "*localop*", "| inputlookup*", "| savedsearch*", "| inputintelligence*", "| pivot*") 
+| eval len_search=len(search) 
+| where len_search>10
+    ```TEST Limiter with smaller search pool search IN ("*`*") eai:acl.app IN ("DA-ESS-AccessProtection", "DA-ESS-ContentUpdate", "DA-ESS-EndpointProtection", "DA-ESS-IdentityManagement", "DA-ESS-NetworkProtection", "SA-AccessProtection", "SA-AuditAndDataProtection", "SA-EndpointProtection", "SA-IdentityManagement", "SA-NetworkProtection")```
+| streamstats count as rolling_count_id 
+| rex max_match=0 field=search "`(?<macro_name>[A-Za-z0-9_-]{2,})(\(([^`]+)\)|\*)?`" 
+| eval macro_name=mvdedup(macro_name) 
+| eval macro_count_outer=mvcount(macro_name) 
+| mvexpand macro_name 
+| join type=outer max=0 macro_name 
+    [| rest /servicesNS/-/-/admin/macros splunk_server=local 
+    | table title, definition eai:acl.app 
+    | rename title as macro_name_full, definition as macro_definition, eai:acl.app as macro_app 
+    | rex field=macro_name_full "(?<macro_name>[^\(]+)" 
+    | fields macro_name macro_definition] 
+| rename macro_definition as macro_definition_outer macro_name as macro_name_outer
+    ```2nd Round Macro Test```
+| rex max_match=0 field=macro_definition_outer "`(?<macro_name>[A-Za-z0-9_-]{2,})(\(([^`]+)\)|\*)?`" 
+| eval macro_name=mvdedup(macro_name) 
+| eval macro_count_middle=mvcount(macro_name) 
+| mvexpand macro_name 
+| join type=outer max=0 macro_name 
+    [| rest /servicesNS/-/-/admin/macros splunk_server=local 
+    | table title, definition eai:acl.app 
+    | rename title as macro_name_full, definition as macro_definition, eai:acl.app as macro_app 
+    | rex field=macro_name_full "(?<macro_name>[^\(]+)" 
+    | fields macro_name macro_definition] 
+| rename macro_name as macro_name_middle macro_definition as macro_definition_middle
+    ```3rd Round Macro Test```
+| rex max_match=0 field=macro_definition_middle "`(?<macro_name>[A-Za-z0-9_-]{2,})(\(([^`]+)\)|\*)?`" 
+| eval macro_name=mvdedup(macro_name) 
+| eval macro_count_inner=mvcount(macro_name) 
+| mvexpand macro_name 
+| join type=outer max=0 macro_name 
+    [| rest /servicesNS/-/-/admin/macros splunk_server=local 
+    | table title, definition eai:acl.app 
+    | rename title as macro_name_full, definition as macro_definition, eai:acl.app as macro_app 
+    | rex field=macro_name_full "(?<macro_name>[^\(]+)" 
+    | fields macro_name macro_definition] 
+| rename macro_name as macro_name_inner macro_definition as macro_definition_inner 
+| stats values(macro_definition_*) as macro_definition_* by rolling_count_id search app title 
+| eval all_macro_definition = mvdedup(mvappend(macro_definition_inner, macro_definition_middle, macro_definition_outer)) 
+| fields - macro_definition_* 
+| eval search_full=search 
+| rex field=search mode=sed "s/\"//g" 
+| rex field=search mode=sed "s/\n//g" 
+| rex field=all_macro_definition mode=sed "s/\"//g" 
+| rex field=all_macro_definition mode=sed "s/\n//g" 
+| eval all_macro_definition= mvjoin(all_macro_definition, " | ") 
+| rex field=all_macro_definition mode=sed "s/[^|]*(eval\s|rex|rename|where|\?|\[|\\\\)[^|]*//g" 
+| eval all_macro_definition=all_macro_definition." "
+    ```Sourcetype extraction from Macro```
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)sourcetype\s*={1,2}\s*(?<sourcetype_equals_macro>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)sourcetype\s+IN\s+\((?<sourcetype_in_macro>[^\*$\)]+)\)" 
+| rex field=search "sourcetype\s*={1,2}\s*(?<sourcetype_equals>[^|\s]+)" 
+| rex mode=sed field="sourcetype_in_macro" "s/\s//g" 
+| makemv sourcetype_in_macro delim="," 
+| eval combined_sourcetype_macro=mvdedup(mvappend(sourcetype_equals_macro,sourcetype_in_macro)) 
+| fields - sourcetype_* 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)index\s*={1,2}\s*(?<index_equals_macro>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)index\s+IN\s+\((?<index_in_macro>[^\*$\)]+)\)" 
+| rex mode=sed field="index_in_macro" "s/\s//g" 
+| makemv index_in_macro delim="," 
+| eval combined_index_macro=mvdedup(mvappend(index_equals_macro,index_in_macro)) 
+| fields - index_* 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)source\s*={1,2}\s*(?<source_equals_macro>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)source\s+IN\s+\((?<source_in_macro>[^\*$\)]+)\)" 
+| rex mode=sed field="source_in_macro" "s/\s//g" 
+| makemv source_in_macro delim="," 
+| eval combined_source_macro=mvdedup(mvappend(source_equals_macro,source_in_macro)) 
+| fields - source_*
+    ```Eventtype Extraction From Macros```
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)eventtype\s*={1,2}\s*(?<eventtype_equals_macro>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=all_macro_definition "(?<!NOT\s)eventtype\s+IN\s+\((?<eventtype_in_macro>[^\*$\)]+)\)" 
+| rex mode=sed field="eventtype_in_macro" "s/\s//g" 
+| makemv eventtype_in_macro delim="," 
+| eval combined_eventtype_macro=mvdedup(mvappend(eventtype_equals_macro,eventtype_in_macro)) 
+| fields - eventtype_*
+    ```Extracting Index Source and Sourcetype from Main Search```
+| rex max_match=0 field=search "(?<!NOT\s)sourcetype\s*={1,2}\s*(?<sourcetype_equals_main>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=search "(?<!NOT\s)sourcetype\s+IN\s+\((?<sourcetype_in_main>[^\*$\)]+)\)" 
+| rex mode=sed field="sourcetype_in_main" "s/\s//g" 
+| makemv sourcetype_in_main delim="," 
+| eval combined_sourcetype_main=mvdedup(mvappend(sourcetype_equals_main,sourcetype_in_main)) 
+| fields - sourcetype_* 
+| rex max_match=0 field=search "(?<!NOT\s)index\s*={1,2}\s*(?<index_equals_main>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=search "(?<!NOT\s)index\s+IN\s+\((?<index_in_main>[^\*$\)]+)\)" 
+| rex mode=sed field="index_in_main" "s/\s//g" 
+| makemv index_in_main delim="," 
+| eval combined_index_main=mvdedup(mvappend(index_equals_main,index_in_main)) 
+| fields - index_* 
+| rex max_match=0 field=search "(?<!NOT\s)source\s*={1,2}\s*(?<source_equals_main>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=search "(?<!NOT\s)source\s+IN\s+\((?<source_in_main>[^\*$\)]+)\)" 
+| rex mode=sed field="source_in_main" "s/\s//g" 
+| makemv source_in_main delim="," 
+| eval combined_source_main=mvdedup(mvappend(source_equals_main,source_in_main))
+    ```Extract Fields```
+| eval search_reduced = search 
+| rex mode=sed field="search_reduced" "s/\n/|/g" 
+| rex mode=sed field=search_reduced "s/\|.*$//" 
+| rex max_match=0 field=search_reduced "(^|\s|\()(?<fieldname>[^\*\s\=\>\\<\&\!\\\(\)]{3,})\s*(?==|>|<|IN)" 
+| eval fieldname=mvdedup(fieldname) 
+| eval fieldname=mvfilter(NOT match(fieldname, "^(sourcetype|index|source|earliest|latest)$")) 
+| fields - search_reduced
+    ```Eventtype Extraction```
+| fields - source_*
+| rex max_match=0 field=search_reduced "(?<!NOT\s)eventtype\s*={1,2}\s*(?<eventtype_equals_main>[^\<\,\`\*$\)\(\|\s\)]+)(\)|\s)" 
+| rex max_match=0 field=search_reduced "(?<!NOT\s)eventtype\s+IN\s+\((?<eventtype_in_main>[^\*$\)]+)\)" 
+| rex mode=sed field="eventtype_in_main" "s/\s//g" 
+| makemv eventtype_in_main delim="," 
+| eval combined_eventtype_main=mvdedup(mvappend(eventtype_equals_main,eventtype_in_main)) 
+| fields - eventtype_*
+    ```Merging Index Sourcetype Source```
+| eval identified_sourcetype=mvdedup(mvappend(combined_sourcetype_main,combined_sourcetype_macro))
+| eval identified_index=mvdedup(mvappend(combined_index_main,combined_index_macro))
+| eval identified_source=mvdedup(mvappend(combined_source_main,combined_source_macro))
+| eval identified_eventtype=mvdedup(mvappend(combined_eventtype_main,combined_eventtype_macro))
+| eval identified_sourcetype_unmod=identified_sourcetype, identified_index_unmod=identified_index
+| fields - combined_*
+```Combined Indexed fields ```
+| fields  title search_full app identified_* fieldname all_macro_definition
+| eval identified_source = mvmap(identified_source, "Source: ".identified_source) 
+| eval identified_sourcetype = mvmap(identified_sourcetype, "Sourcetype: ".identified_sourcetype) 
+| eval identified_index = mvmap(identified_index, "Index: ".identified_index) 
+| eval combined_indexed_fields = mvappend(identified_source, identified_sourcetype, identified_index) 
+| fields - identified_source all_macro_definition 
+| eval combined_indexed_fields = if(isnotnull(combined_indexed_fields), combined_indexed_fields, "NA") 
+| stats values(identified_sourcetype_unmod) as identified_sourcetype, values(identified_index_unmod) as identified_index, values(identified_eventtype) as identified_eventtype values(fieldname) as fieldname by combined_indexed_fields title app search_full
+| join type=outer max=0 combined_indexed_fields 
+    [| tstats prestats=true count WHERE index=* OR index=_* by index source sourcetype 
+| fields count index source sourcetype
+| search NOT source="*/*" 
+| rename index as identified_index sourcetype as identified_sourcetype, source as identified_source 
+| eval identified_source = mvmap(identified_source, "Source:".identified_source) 
+| eval identified_sourcetype = mvmap(identified_sourcetype, "Sourcetype: ".identified_sourcetype) 
+| eval identified_index = mvmap(identified_index, "Index: ".identified_index) 
+| eval combined_indexed_fields = mvappend(identified_source, identified_sourcetype, identified_index) 
+| stats count by combined_indexed_fields 
+| fields - count 
+| eval matched_field=combined_indexed_fields] 
+| eval combined_indexed_fields=if(combined_indexed_fields=="NA", NULL, combined_indexed_fields) 
+| eval missing_field=if(combined_indexed_fields==matched_field, NULL, combined_indexed_fields) 
+| stats values(identified_eventtype) as identified_eventtype 
+    values(fieldname) as fieldname 
+    values(identified_sourcetype) as identified_sourcetype
+    values(identified_index) as identified_index
+    values(combined_indexed_fields) as combined_indexed_fields
+    count(combined_indexed_fields) as count_combined_indexed_fields
+    values(missing_field) as missing_field 
+    count(missing_field) as count_missing_field
+    values(matched_field) as matched_field 
+    count(matched_field) as count_matched_field
+    by title app search_full
+| eval requirement_status=case(
+    count_combined_indexed_fields==count_matched_field AND isnotnull(combined_indexed_fields), "Full Match", 
+    count_combined_indexed_fields>count_matched_field AND count_matched_field>0, "Partial", 
+    count_matched_field==0 AND isnotnull(combined_indexed_fields), "Fail",
+    isnull(combined_indexed_fields), "No Indexed Field Reqs Found")
+| sort - count count_matched_field
+| eval missing_field_joined= mvjoin(missing_field, ", "), matched_field_joined=mvjoin(matched_field, ", ")
+| eval match_breakdown = case(requirement_status=="Partial", "Out of the total ".count_combined_indexed_fields." indexed field requirement(s), total of ".count_matched_field." match(es) were identfied (".matched_field_joined.") but ".count_missing_field. " requirement(s) where missing (".missing_field_joined.")", requirement_status=="Full Match", "Out of the total ".count_combined_indexed_fields." indexed field requirement(s), ALL were identfied (".matched_field_joined.")", requirement_status=="Fail", "Out of the total ".count_combined_indexed_fields." indexed field requirement(s), NONE were identfied (".missing_field_joined.")")
+| fields - missing_field_joined matched_field_joined count_combined_indexed_fields count_missing_field count_matched_field missing_field 
+| rex field=title "^(?<search_prefix>[^\.\s\:\-\_]+)"
+| eval search_prefix=if(isnull(search_prefix), "Unidentified Prefix", search_prefix)
+| eval identified_sourcetype=if(isnull(identified_sourcetype), "Unidentified Sourcetype", identified_sourcetype)
+| eval identified_index=if(isnull(identified_index), "Unidentified Index", identified_index) | search requirement_status IN ("*") 
+app IN ("*") 
+identified_index IN ("*")
+identified_sourcetype IN ("*")
+title IN ("*")
+search_prefix IN ("*")
+| fields title app requirement_status match_breakdown
+| rename title AS "Search Name"
+app as "App Where the Search Originated"
+requirement_status as "Match Result"
+match_breakdown as "Breakdown of Match Conditions"
