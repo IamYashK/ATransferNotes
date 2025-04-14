@@ -1,1 +1,54 @@
-"[Name] is an invaluable asset to our Splunk team. Their expertise, dedication, and collaborative spirit have consistently driven our projects to success. A true professional and team player, [Name] consistently delivers top-notch results. I highly recommend them for any Splunk-related endeavors."
+import os
+import json
+import time
+from datetime import datetime, timedelta
+
+STATE_FILE = "countdown_state.json"
+DEFAULT_DURATION_SECONDS = 8 * 3600  # 8 hours
+
+def save_state(remaining_seconds):
+    with open(STATE_FILE, "w") as f:
+        json.dump({
+            "remaining_seconds": remaining_seconds,
+            "last_saved_time": datetime.now().isoformat()
+        }, f)
+
+def load_state():
+    if not os.path.exists(STATE_FILE):
+        return DEFAULT_DURATION_SECONDS, None
+    try:
+        with open(STATE_FILE, "r") as f:
+            data = json.load(f)
+            remaining = data["remaining_seconds"]
+            last_saved = datetime.fromisoformat(data["last_saved_time"])
+            return remaining, last_saved
+    except (KeyError, json.JSONDecodeError, ValueError):
+        print("⚠️ Corrupted or outdated state file. Starting fresh.")
+        return DEFAULT_DURATION_SECONDS, None
+
+def delete_state():
+    if os.path.exists(STATE_FILE):
+        os.remove(STATE_FILE)
+
+def format_time(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    return f"{hours} hour(s) {minutes} minute(s)"
+
+def start_timer():
+    delete_state()  # Always start fresh
+    remaining_seconds, _ = load_state()
+
+    print("🕒 Starting fresh countdown for 8 hours...\n")
+
+    while remaining_seconds > 0:
+        print(f"⏳ Time remaining: {format_time(remaining_seconds)} — Current time: {datetime.now().strftime('%H:%M:%S')}")
+        time.sleep(60)
+        remaining_seconds -= 60
+        save_state(remaining_seconds)
+
+    print(f"\n✅ Countdown complete at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    delete_state()
+
+if __name__ == "__main__":
+    start_timer()
