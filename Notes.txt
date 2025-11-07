@@ -1,54 +1,54 @@
 import os
-import json
-import time
-from datetime import datetime, timedelta
+import pandas as pd
 
-STATE_FILE = "countdown_state.json"
-DEFAULT_DURATION_SECONDS = 8 * 3600  # 8 hours
+onprem_folder = "on-prem"
+cloud_folder  = "cloud"
+output_folder = "output"
 
-def save_state(remaining_seconds):
-    with open(STATE_FILE, "w") as f:
-        json.dump({
-            "remaining_seconds": remaining_seconds,
-            "last_saved_time": datetime.now().isoformat()
-        }, f)
+compare_fields = ["host", "iid", "index", "sourcetype", "wf_id"]
 
-def load_state():
-    if not os.path.exists(STATE_FILE):
-        return DEFAULT_DURATION_SECONDS, None
-    try:
-        with open(STATE_FILE, "r") as f:
-            data = json.load(f)
-            remaining = data["remaining_seconds"]
-            last_saved = datetime.fromisoformat(data["last_saved_time"])
-            return remaining, last_saved
-    except (KeyError, json.JSONDecodeError, ValueError):
-        print("⚠️ Corrupted or outdated state file. Starting fresh.")
-        return DEFAULT_DURATION_SECONDS, None
+os.makedirs(output_folder, exist_ok=True)
 
-def delete_state():
-    if os.path.exists(STATE_FILE):
-        os.remove(STATE_FILE)
+reports = []
 
-def format_time(seconds):
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    return f"{hours} hour(s) {minutes} minute(s)"
+for file in os.listdir(onprem_folder):
+    if file.endswith(".csv"):
 
-def start_timer():
-    delete_state()  # Always start fresh
-    remaining_seconds, _ = load_state()
+        onprem_file = os.path.join(onprem_folder, file)
+        cloud_file  = os.path.join(cloud_folder,  file)
 
-    print("🕒 Starting fresh countdown for 8 hours...\n")
+        if not os.path.exists(cloud_file):
+            reports.append([file, "File missing", "onprem present", "cloud missing"])
+            continue
 
-    while remaining_seconds > 0:
-        print(f"⏳ Time remaining: {format_time(remaining_seconds)} — Current time: {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(60)
-        remaining_seconds -= 60
-        save_state(remaining_seconds)
+        df_onprem = pd.read_csv(onprem_file, usecols=compare_fields)
+        df_cloud  = pd.read_csv(cloud_file,  usecols=compare_fields)
 
-    print(f"\n✅ Countdown complete at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    delete_state()
+        # convert rows to tuple so we can do set operations
+        onprem_set = set(tuple(row) for row in df_onprem.to_numpy())
+        cloud_set  = set(tuple(row) for row in df_cloud.to_numpy())
 
-if __name__ == "__main__":
-    start_timer()
+        common      = onprem_set & cloud_set
+        only_onprem = onprem_set - cloud_set
+        only_cloud  = cloud_set  - onprem_set
+
+        # convert sets back to dataframe
+        df_common      = pd.DataFrame(list(common), columns=compare_fields)
+        df_only_onprem = pd.DataFrame(list(only_onprem), columns=compare_fields)
+        df_only_cloud  = pd.DataFrame(list(only_cloud), columns=compare_fields)
+
+        # file base name without extension
+        base = os.path.splitext(file)[0]
+
+        df_common.to_csv(os.path.join(output_folder, f"{base}_common.csv"), index=False)
+        df_only_onprem.to_csv(os.path.join(output_folder, f"{base}_only_onprem.csv"), index=False)
+        df_only_cloud.to_csv(os.path.join(output_folder, f"{base}_only_cloud.csv"), index=False)
+
+        # summary
+        reports.append([file, len(common), len(only_onprem), len(only_cloud)])
+
+
+summary = pd.DataFrame(reports, columns=["file","common_rows","only_onprem_rows","only_cloud_rows"])
+summary.to_csv(os.path.join(output_folder, "summary.csv"), index=False)
+print(summary)
+print("\nDone. Reports written to 'output' folder")
